@@ -38,42 +38,35 @@ def generate_code(code_obj: BytesIO):
         ("RETURN_VALUE", None),
     ]
 
-    def manual():
-        code = BytesIO()
-    
-        cache = bytes([dis.opmap["CACHE"], 0])
-        for op, arg in instructions:
-            opc = dis.opmap[op]
-            if arg is None: arg = 0
-            code.write(bytes([opc, arg]))
-            code.write(cache * dis._inline_cache_entries[opc])
-    
-        code = CodeType(
-            0, # argcount
-            0, # posonlyargcount
-            0, # kwonlyargcount
-            0, # nlocals
-            1, # stacksize
-            2, # flags (newlocals)
-            code.getvalue(), # code
-            tuple(consts), # consts
-            tuple(names), # names
-            tuple(varnames), # varnames
-            __file__, # filename
-            "main", # name
-            "main", # qualname
-            0, # firstlineno
-            b"", # linetable
-            b"", # exceptiontable
-            (), # freevars
-            (), # cellvars
-        )
-        return code
-    def using_byteasm():
-        import byteasm
-        b = byteasm.FunctionBuilder()
+    code = BytesIO()
 
-    code = manual()
+    cache = bytes([dis.opmap["CACHE"], 0])
+    for op, arg in instructions:
+        opc = dis.opmap[op]
+        if arg is None: arg = 0
+        code.write(bytes([opc, arg]))
+        code.write(cache * dis._inline_cache_entries[opc])
+
+    code = CodeType(
+        0, # argcount
+        0, # posonlyargcount
+        0, # kwonlyargcount
+        0, # nlocals
+        1, # stacksize
+        2, # flags (newlocals)
+        code.getvalue(), # code
+        tuple(consts), # consts
+        tuple(names), # names
+        tuple(varnames), # varnames
+        __file__, # filename
+        "main", # name
+        "main", # qualname
+        0, # firstlineno
+        b"", # linetable
+        b"", # exceptiontable
+        (), # freevars
+        (), # cellvars
+    )
     marshal.dump(code, code_obj)
 
 
