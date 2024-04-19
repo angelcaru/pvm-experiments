@@ -39,6 +39,9 @@ class PyCode:
         if local in self.varnames: return self.varnames.index(local)
         self.varnames.append(local)
         return len(self.varnames) - 1
+    
+    def global_(self, global_):
+        return self.name(global_) * 2 + 1 # why, Python? Why?
 
     def assemble(self) -> CodeType:
         ret = BytesIO()
@@ -81,7 +84,7 @@ def generate_code(code_obj: BytesIO):
     code.instructions += [
         ("RESUME", 0),
 
-        ("LOAD_GLOBAL", code.name("print") * 2 + 1),
+        ("LOAD_GLOBAL", code.global_("print")),
         ("LOAD_CONST", code.const("Hello, World!")),
         ("PRECALL", 1),
         ("CALL", 1),
@@ -100,7 +103,7 @@ def generate_code(code_obj: BytesIO):
         ("MAKE_FUNCTION", 0),
         ("STORE_NAME", code.name("foo")),
 
-        ("LOAD_GLOBAL", code.name("exec") * 2 + 1),
+        ("LOAD_GLOBAL", code.global_("exec")),
         ("LOAD_CONST", code.const(compile("if __name__ == '__main__': foo()", code.filename, "exec"))),
         ("PRECALL", 1),
         ("CALL", 1),
