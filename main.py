@@ -65,7 +65,7 @@ class PyCode:
             tuple(self.varnames), # varnames
             self.filename, # filename
             self.fn_name, # name
-            f"generated({self.filename})::{self.name}", # qualname
+            f"generated({__file__})::{self.name}", # qualname
             0, # firstlineno
             b"", # linetable
             b"", # exceptiontable
@@ -81,7 +81,7 @@ def generate_code(code_obj: BytesIO):
     code.instructions += [
         ("RESUME", 0),
 
-        ("LOAD_GLOBAL", code.name("print") + 1),
+        ("LOAD_GLOBAL", code.name("print") * 2 + 1),
         ("LOAD_CONST", code.const("Hello, World!")),
         ("PRECALL", 1),
         ("CALL", 1),
@@ -100,7 +100,7 @@ def generate_code(code_obj: BytesIO):
         ("MAKE_FUNCTION", 0),
         ("STORE_NAME", code.name("foo")),
 
-        ("LOAD_GLOBAL", code.name("exec") + 2),
+        ("LOAD_GLOBAL", code.name("exec") * 2 + 1),
         ("LOAD_CONST", code.const(compile("if __name__ == '__main__': foo()", code.filename, "exec"))),
         ("PRECALL", 1),
         ("CALL", 1),
@@ -110,7 +110,11 @@ def generate_code(code_obj: BytesIO):
         ("RETURN_VALUE", None),
     ]
     module_code = code.assemble()
+    print("Disassembly of module code:")
     dis.disassemble(module_code)
+    print()
+    print("Disassembly of function 'foo' code:")
+    dis.disassemble(func_code)
     marshal.dump(module_code, code_obj)
 
 MAGIC = b"\xa7\x0d" # Release version 3.11
