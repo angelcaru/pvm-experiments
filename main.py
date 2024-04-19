@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
 from io import BytesIO
 from dataclasses import dataclass, field
 
@@ -22,7 +23,7 @@ class PyCode:
     names: list[str] = field(default_factory=list)
     varnames: list[str] = field(default_factory=list)
     filename: str = field(default="<assembly>")
-    instructions: list[tuple[str, int]] = field(default_factory=list)
+    instructions: list[tuple[str, int | None]] = field(default_factory=list)
     
     def name(self, name):
         if name in self.names: return self.names.index(name)
@@ -112,10 +113,13 @@ def generate_code(code_obj: BytesIO):
     dis.disassemble(module_code)
     marshal.dump(module_code, code_obj)
 
+MAGIC = b"\xa7\x0d" # Release version 3.11
+#MAGIC = b"\xf1\x0d" # CPython `master` branch
+
 def main(argv: list[str]):  
     filename = "generated.pyc"
     with open(filename, "wb") as f:
-        f.write(b"\xa7\x0d") # magic
+        f.write(MAGIC) # magic
         f.write(b"\r\n") # crlf (separates magic from the rest of the file)
         f.write(struct.pack("<L", 0)) # flags
         f.write(struct.pack("<L", int(dt.datetime.now().timestamp()))) # timestamp
