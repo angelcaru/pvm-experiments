@@ -16,6 +16,9 @@ CodeType = type(dud.__code__)
 
 @dataclass
 class PyCodeBuilder:
+    """
+    Builder class for code objects.
+    """
     fn_name: str
     argcount: int
     stacksize: int
@@ -26,24 +29,29 @@ class PyCodeBuilder:
     instructions: list[tuple[str, int | None]] = field(default_factory=list)
     
     def name(self, name):
+        """Use this method to use a name inside Python ASM"""
         if name in self.names: return self.names.index(name)
         self.names.append(name)
         return len(self.names) - 1
 
     def const(self, const):
+        """Use this method to use a constant (number, string literal, None, etc.) inside Python ASM"""
         if const in self.consts: return self.consts.index(const)
         self.consts.append(const)
         return len(self.consts) - 1
 
     def local(self, local):
+        """Use this method to use a local variable inside Python ASM"""
         if local in self.varnames: return self.varnames.index(local)
         self.varnames.append(local)
         return len(self.varnames) - 1
     
     def global_(self, global_):
+        """Use this method to use a global builtin variable (print, input, exec, etc.) inside Python ASM"""
         return self.name(global_) * 2 + 1 # why, Python? Why?
 
     def assemble(self) -> CodeType:
+        """Creates a code object from a PyCodeBuilder"""
         ret = BytesIO()
 
         code = BytesIO()
@@ -77,10 +85,17 @@ class PyCodeBuilder:
         )
         return code
 
-
 def generate_code(code_obj: BytesIO):
     code = PyCodeBuilder(fn_name="foo", stacksize=69, argcount=0)
 
+    # Here is the Python ASM code. If you need examples, there is literally one right here. (They say source code is the best documentation)
+    # Or you could use the `dis` module from the standard library:
+    # ```python
+    # import dis
+    # def f():
+    #     the_code_you_want_as_asm()
+    # dis.dis(f)
+    # ```
     code.instructions += [
         ("RESUME", 0),
 
@@ -94,6 +109,7 @@ def generate_code(code_obj: BytesIO):
         ("RETURN_VALUE", None),
     ]
 
+    # Functions are implemented as separate code objects.
     func_code = code.assemble()
 
     code = PyCodeBuilder(fn_name="<module>", stacksize=69, argcount=0)
@@ -104,6 +120,7 @@ def generate_code(code_obj: BytesIO):
         ("STORE_NAME", code.name("foo")),
 
         ("LOAD_GLOBAL", code.global_("exec")),
+        # Too lazy to actually implement the `if` statement, so I had Python do it for me
         ("LOAD_CONST", code.const(compile("if __name__ == '__main__': foo()", code.filename, "exec"))),
         ("PRECALL", 1),
         ("CALL", 1),
