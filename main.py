@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from io import BytesIO
+from dataclasses import dataclass, field
 
 import datetime as dt
 import struct
@@ -12,65 +13,106 @@ import sys
 def dud(): pass
 CodeType = type(dud.__code__)
 
+@dataclass
+class PyCode:
+    fn_name: str
+    argcount: int
+    stacksize: int
+    consts: list[object] = field(default_factory=list)
+    names: list[str] = field(default_factory=list)
+    varnames: list[str] = field(default_factory=list)
+    filename: str = field(default="<assembly>")
+    instructions: list[tuple[str, int]] = field(default_factory=list)
+    
+    def name(self, name):
+        if name in self.names: return self.names.index(name)
+        self.names.append(name)
+        return len(self.names) - 1
+
+    def const(self, const):
+        if const in self.consts: return self.consts.index(const)
+        self.consts.append(const)
+        return len(self.consts) - 1
+
+    def local(self, local):
+        if local in self.varnames: return self.varnames.index(local)
+        self.varnames.append(local)
+        return len(self.varnames) - 1
+
+    def assemble(self) -> CodeType:
+        ret = BytesIO()
+
+        code = BytesIO()
+    
+        cache = bytes([dis.opmap["CACHE"], 0])
+        for op, arg in self.instructions:
+            opc = dis.opmap[op]
+            if arg is None: arg = 0
+            code.write(bytes([opc, arg]))
+            code.write(cache * dis._inline_cache_entries[opc])
+    
+        code = CodeType(
+            self.argcount, # argcount
+            0, # posonlyargcount
+            0, # kwonlyargcount
+            len(self.varnames), # nlocals
+            self.stacksize, # stacksize
+            2, # flags (newlocals)
+            code.getvalue(), # code
+            tuple(self.consts), # consts
+            tuple(self.names), # names
+            tuple(self.varnames), # varnames
+            self.filename, # filename
+            self.fn_name, # name
+            f"generated({self.filename})::{self.name}", # qualname
+            0, # firstlineno
+            b"", # linetable
+            b"", # exceptiontable
+            (), # freevars
+            (), # cellvars
+        )
+        return code
+
+
 def generate_code(code_obj: BytesIO):
-    consts = []
-    names = []
-    varnames = []
+    code = PyCode(fn_name="foo", stacksize=69, argcount=0)
 
-    def name(name):
-        names.append(name)
-        return len(names) - 1
-
-    def const(const):
-        consts.append(const)
-        return len(consts) - 1
-
-    instructions = [
+    code.instructions += [
         ("RESUME", 0),
 
-        ("LOAD_GLOBAL", name("print") + 1),
-        ("LOAD_CONST", const("Hello, World!")),
+        ("LOAD_GLOBAL", code.name("print") + 1),
+        ("LOAD_CONST", code.const("Hello, World!")),
         ("PRECALL", 1),
         ("CALL", 1),
         ("POP_TOP", None),
 
-        ("LOAD_CONST", const(69)),
+        ("LOAD_CONST", code.const(69)),
         ("RETURN_VALUE", None),
     ]
 
-    code = BytesIO()
+    func_code = code.assemble()
 
-    cache = bytes([dis.opmap["CACHE"], 0])
-    for op, arg in instructions:
-        opc = dis.opmap[op]
-        if arg is None: arg = 0
-        code.write(bytes([opc, arg]))
-        code.write(cache * dis._inline_cache_entries[opc])
+    code = PyCode(fn_name="<module>", stacksize=69, argcount=0)
 
-    code = CodeType(
-        0, # argcount
-        0, # posonlyargcount
-        0, # kwonlyargcount
-        0, # nlocals
-        1, # stacksize
-        2, # flags (newlocals)
-        code.getvalue(), # code
-        tuple(consts), # consts
-        tuple(names), # names
-        tuple(varnames), # varnames
-        __file__, # filename
-        "main", # name
-        "main", # qualname
-        0, # firstlineno
-        b"", # linetable
-        b"", # exceptiontable
-        (), # freevars
-        (), # cellvars
-    )
-    marshal.dump(code, code_obj)
+    code.instructions += [
+        ("LOAD_CONST", code.const(func_code)),
+        ("MAKE_FUNCTION", 0),
+        ("STORE_NAME", code.name("foo")),
 
+        ("LOAD_GLOBAL", code.name("exec") + 2),
+        ("LOAD_CONST", code.const(compile("if __name__ == '__main__': foo()", code.filename, "exec"))),
+        ("PRECALL", 1),
+        ("CALL", 1),
+        ("POP_TOP", None),
 
-def main(argv: list[str]):
+        ("LOAD_CONST", code.const(None)),
+        ("RETURN_VALUE", None),
+    ]
+    module_code = code.assemble()
+    dis.disassemble(module_code)
+    marshal.dump(module_code, code_obj)
+
+def main(argv: list[str]):  
     filename = "generated.pyc"
     with open(filename, "wb") as f:
         f.write(b"\xa7\x0d") # magic
@@ -84,14 +126,6 @@ def main(argv: list[str]):
         code = code_obj.getvalue()
         f.write(struct.pack("<L", len(code))) # size
         f.write(code)
-
-    if len(argv) > 1 and argv[1] == "show":
-        import show_pyc
-        show_pyc.show_pyc_file(filename)
-    else:
-        import generated
-
-
 
 if __name__ == "__main__":
     main(sys.argv)
