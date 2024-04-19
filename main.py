@@ -15,7 +15,7 @@ def dud(): pass
 CodeType = type(dud.__code__)
 
 @dataclass
-class PyCode:
+class PyCodeBuilder:
     fn_name: str
     argcount: int
     stacksize: int
@@ -79,7 +79,7 @@ class PyCode:
 
 
 def generate_code(code_obj: BytesIO):
-    code = PyCode(fn_name="foo", stacksize=69, argcount=0)
+    code = PyCodeBuilder(fn_name="foo", stacksize=69, argcount=0)
 
     code.instructions += [
         ("RESUME", 0),
@@ -96,7 +96,7 @@ def generate_code(code_obj: BytesIO):
 
     func_code = code.assemble()
 
-    code = PyCode(fn_name="<module>", stacksize=69, argcount=0)
+    code = PyCodeBuilder(fn_name="<module>", stacksize=69, argcount=0)
 
     code.instructions += [
         ("LOAD_CONST", code.const(func_code)),
